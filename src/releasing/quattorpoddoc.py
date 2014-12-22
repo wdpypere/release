@@ -20,8 +20,22 @@ MAILREGEX = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^
 PATHREGEX = re.compile(r'(\s+)((?:/[\w{}]+)+\.?\w*)(\s*)')
 EXAMPLEMAILS = ["example", "username", "system.admin"]
 LOGGER = fancylogger.getLogger()
-SUBDIR = "components"
 DOCDIR = "docs"
+
+REPOMAP = {
+    "configuration-modules-core": {"sitesubdir": "components",
+                                   "prefix": "ncm-",
+                                   "target": "target"},
+    "aii": {"sitesubdir": "AII",
+            "prefix": "aii-",
+            "target": "target"},
+    "CAF": {"sitesubdir": "CAF",
+            "prefix": "",
+            "target": "doc/pod/CAF"},
+    "CCM": {"sitesubdir": "CCM",
+            "prefix": "",
+            "target": "doc/pod/EDG/WP4/CCM"},
+    }
 
 
 def mavencleancompile(modules_location):
@@ -38,7 +52,7 @@ def mavencleancompile(modules_location):
     LOGGER.debug(output)
 
 
-def generatemds(pods, location):
+def generatemds(pods, location, subdir, prefix):
     """
     Takes a list of components with podfiles and generates a md file for it.
     """
@@ -46,14 +60,16 @@ def generatemds(pods, location):
     counter = 0
     mdfiles = []
 
-    comppath = os.path.join(location, DOCDIR, SUBDIR)
+    comppath = os.path.join(location, DOCDIR, subdir)
     if not os.path.exists(comppath):
         os.makedirs(comppath)
 
     for component in sorted(pods):
         for pod in pods[component]:
-            component = component.replace('ncm-', '')
+            component = component.replace(prefix, '')
             title = os.path.splitext(os.path.basename(pod))[0]
+            if component == "target":
+                component = subdir
             if component != title:
                 title = component+'::'+title
             mdfile = os.path.join(comppath, '%s.md' % title)
@@ -77,6 +93,7 @@ def convertpodtomarkdown(podfile, outputfile):
         fih.write(output[1])
 
 
+<<<<<<< HEAD
 def addintrogreeter(outputloc):
     """
     Writes small intro file.
@@ -87,11 +104,15 @@ def addintrogreeter(outputloc):
 
 
 def generatetoc(pods, outputloc, indexname):
+=======
+def generatetoc(pods, outputloc, indexname, subdir, prefix, title):
+>>>>>>> support CCM, CAF and aii
     """
     Generates a TOC for the parsed components.
     """
     LOGGER.info("Generating TOC as %s." % os.path.join(outputloc, indexname))
 
+<<<<<<< HEAD
     with open(os.path.join(outputloc, indexname), "w") as fih:
         fih.write("site_name: Quattor Configuration Modules (Core)\n\n")
         fih.write("theme: 'readthedocs'\n\n")
@@ -109,8 +130,40 @@ def generatetoc(pods, outputloc, indexname):
                     subname = os.path.splitext(os.path.basename(pod))[0]
                     linkname = "%s/%s::%s.md" % (SUBDIR, name, subname)
                     fih.write("- ['%s', '%s']\n" % (linkname, SUBDIR))
+=======
+    fih = open(os.path.join(outputloc, indexname), "w")
+
+    fih.write("site_name: %s\n\n" % title)
+    fih.write("theme: 'readthedocs'\n\n")
+    fih.write("pages:\n")
+    fih.write("- ['index.md', 'introduction']\n")
+
+    for component in sorted(pods):
+        name = component.replace(prefix, '')
+        if name == "target":
+            name = title
+        linkname = "%s/%s.md" % (subdir, name)
+        writeifexists(outputloc, linkname, subdir, fih)
+        if len(pods[component]) > 1:
+            for pod in sorted(pods[component][1:]):
+                subname = os.path.splitext(os.path.basename(pod))[0]
+                linkname = "%s/%s::%s.md" % (subdir, name, subname)
+                writeifexists(outputloc, linkname, subdir, fih)
+>>>>>>> support CCM, CAF and aii
 
         fih.write("\n")
+
+
+def writeifexists(outputloc, linkname, subdir, fih):
+    """
+    Checks if the MD exists before adding it to the TOC.
+    """
+    if os.path.exists(os.path.join(outputloc, DOCDIR, linkname)):
+        LOGGER.debug("Adding %s to toc." % linkname)
+        fih.write("- ['%s', '%s']\n" % (linkname, subdir))
+    else:
+        LOGGER.warn("Expected %s but it does not exist. Not adding to toc."
+                    % os.path.join(outputloc, DOCDIR, linkname))
 
 
 def removemailadresses(mdfiles):
@@ -120,8 +173,15 @@ def removemailadresses(mdfiles):
     LOGGER.info("Removing emailaddresses from md files.")
     counter = 0
     for mdfile in mdfiles:
+<<<<<<< HEAD
         with open(mdfile, 'r') as fih:
             mdcontent = fih.read()
+=======
+        fih = open(mdfile, 'r')
+        mdcontent = fih.read()
+        fih.close()
+        replace = False
+>>>>>>> support CCM, CAF and aii
         for email in re.findall(MAILREGEX, mdcontent):
             LOGGER.debug("Found %s." % email[0])
             replace = True
@@ -226,16 +286,23 @@ def checkinputandcommands(modloc, outputloc, runmaven):
     """
     LOGGER.info("Checking if the given paths exist.")
     if not modloc:
-        LOGGER.error("configuration-modules-core location not specified")
+        LOGGER.error("Repo location not specified.")
         sys.exit(1)
     if not outputloc:
         LOGGER.error("output location not specified")
         sys.exit(1)
     if not os.path.exists(modloc):
-        LOGGER.error("configuration-modules-core location %s does not exist" % modloc)
+        LOGGER.error("Repo location %s does not exist" % modloc)
         sys.exit(1)
     if not os.path.exists(outputloc):
         LOGGER.error("Output location %s does not exist" % outputloc)
+        sys.exit(1)
+
+    LOGGER.info("Checking if repo is supported.")
+    if not os.path.basename(os.path.normpath(modloc)) in REPOMAP:
+        LOGGER.error("Repo at %s is not supported. Supported repos are:" % modloc)
+        for supmod in REPOMAP:
+            LOGGER.error(" - %s" % supmod)
         sys.exit(1)
 
     LOGGER.info("Checking if required binaries are installed.")
@@ -248,7 +315,7 @@ def checkinputandcommands(modloc, outputloc, runmaven):
         sys.exit(1)
 
 
-def listcomponents(module_location):
+def listcomponents(module_location, prefix):
     """
     return a list of components in module_location.
     """
@@ -256,7 +323,7 @@ def listcomponents(module_location):
     counter = 0
     LOGGER.info("Searching for components in %s." % module_location)
     for posloc in os.listdir(module_location):
-        if os.path.isdir(os.path.join(module_location, posloc)) and posloc.startswith("ncm-"):
+        if os.path.isdir(os.path.join(module_location, posloc)) and posloc.startswith(prefix):
             components.append(posloc)
             LOGGER.debug("Adding %s to component list." % posloc)
             counter += 1
@@ -264,7 +331,7 @@ def listcomponents(module_location):
     return components
 
 
-def listpods(module_location, components):
+def listpods(module_location, components, target):
     """
     return an array of the pod files per component.
     """
@@ -273,8 +340,7 @@ def listpods(module_location, components):
     LOGGER.info("searching for podfiles per component.")
     for comp in components:
         pods = []
-
-        for root, _, files in os.walk(os.path.join(module_location, comp, "target")):
+        for root, _, files in os.walk(os.path.join(module_location, comp, target)):
             for fileh in files:
 
                 if fileh.endswith(".pod"):
@@ -302,7 +368,7 @@ def which(command):
 
 if __name__ == '__main__':
     OPTIONS = {
-        'modules_location': ('The location of the configuration-modules-core checkout.', None, 'store', None, 'm'),
+        'modules_location': ('The location of the repo checkout.', None, 'store', None, 'm'),
         'output_location': ('The location where the output markdown files should be written to.', None, 'store', None, 'o'),
         'maven_compile': ('Execute a maven clean and maven compile before generating the documentation.', None, 'store_true', False, 'c'),
         'index_name': ('Filename for the index/toc for the components.', None, 'store', 'mkdocs.yml', 'i'),
@@ -323,11 +389,16 @@ if __name__ == '__main__':
     else:
         LOGGER.info("Skipping maven clean and compile.")
 
-    COMPS = listcomponents(GO.options.modules_location)
-    PODS = listpods(GO.options.modules_location, COMPS)
+    SUBDIR = REPOMAP[os.path.basename(os.path.normpath(GO.options.modules_location))]['sitesubdir']
+    PREFIX = REPOMAP[os.path.basename(os.path.normpath(GO.options.modules_location))]['prefix']
+    TARGET = REPOMAP[os.path.basename(os.path.normpath(GO.options.modules_location))]['target']
+    NAME = os.path.basename(os.path.normpath(GO.options.modules_location))
 
-    MDS = generatemds(PODS, GO.options.output_location)
-    generatetoc(PODS, GO.options.output_location, GO.options.index_name)
+    COMPS = listcomponents(GO.options.modules_location, PREFIX)
+    PODS = listpods(GO.options.modules_location, COMPS, TARGET)
+
+    MDS = generatemds(PODS, GO.options.output_location, SUBDIR, PREFIX)
+    generatetoc(PODS, GO.options.output_location, GO.options.index_name, SUBDIR, PREFIX, NAME)
 
     if GO.options.remove_emails:
         removemailadresses(MDS)

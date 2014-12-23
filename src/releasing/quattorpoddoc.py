@@ -93,64 +93,29 @@ def convertpodtomarkdown(podfile, outputfile):
         fih.write(output[1])
 
 
-<<<<<<< HEAD
-def addintrogreeter(outputloc):
-    """
-    Writes small intro file.
-    """
-    LOGGER.info("Adding introduction page.")
-    with open(os.path.join(outputloc, DOCDIR, "index.md"), "w") as fih:
-        fih.write("This is the documentation for the core set of configuration modules for configuring systems with Quattor.\n")
-
-
-def generatetoc(pods, outputloc, indexname):
-=======
 def generatetoc(pods, outputloc, indexname, subdir, prefix, title):
->>>>>>> support CCM, CAF and aii
     """
     Generates a TOC for the parsed components.
     """
     LOGGER.info("Generating TOC as %s." % os.path.join(outputloc, indexname))
 
-<<<<<<< HEAD
     with open(os.path.join(outputloc, indexname), "w") as fih:
-        fih.write("site_name: Quattor Configuration Modules (Core)\n\n")
+        fih.write("site_name: %s\n\n" % title)
         fih.write("theme: 'readthedocs'\n\n")
         fih.write("pages:\n")
         fih.write("- ['index.md', 'introduction']\n")
 
-        addintrogreeter(outputloc)
-
         for component in sorted(pods):
-            name = component.replace('ncm-', '')
-            linkname = "%s/%s.md" % (SUBDIR, name)
-            fih.write("- ['%s', '%s']\n" % (linkname, SUBDIR))
+            name = component.replace(prefix, '')
+            if name == "target":
+                name = title
+            linkname = "%s/%s.md" % (subdir, name)
+            writeifexists(outputloc, linkname, subdir, fih)
             if len(pods[component]) > 1:
                 for pod in sorted(pods[component][1:]):
                     subname = os.path.splitext(os.path.basename(pod))[0]
-                    linkname = "%s/%s::%s.md" % (SUBDIR, name, subname)
-                    fih.write("- ['%s', '%s']\n" % (linkname, SUBDIR))
-=======
-    fih = open(os.path.join(outputloc, indexname), "w")
-
-    fih.write("site_name: %s\n\n" % title)
-    fih.write("theme: 'readthedocs'\n\n")
-    fih.write("pages:\n")
-    fih.write("- ['index.md', 'introduction']\n")
-
-    for component in sorted(pods):
-        name = component.replace(prefix, '')
-        if name == "target":
-            name = title
-        linkname = "%s/%s.md" % (subdir, name)
-        writeifexists(outputloc, linkname, subdir, fih)
-        if len(pods[component]) > 1:
-            for pod in sorted(pods[component][1:]):
-                subname = os.path.splitext(os.path.basename(pod))[0]
-                linkname = "%s/%s::%s.md" % (subdir, name, subname)
-                writeifexists(outputloc, linkname, subdir, fih)
->>>>>>> support CCM, CAF and aii
-
+                    linkname = "%s/%s::%s.md" % (subdir, name, subname)
+                    writeifexists(outputloc, linkname, subdir, fih)
         fih.write("\n")
 
 
@@ -173,15 +138,9 @@ def removemailadresses(mdfiles):
     LOGGER.info("Removing emailaddresses from md files.")
     counter = 0
     for mdfile in mdfiles:
-<<<<<<< HEAD
         with open(mdfile, 'r') as fih:
             mdcontent = fih.read()
-=======
-        fih = open(mdfile, 'r')
-        mdcontent = fih.read()
-        fih.close()
         replace = False
->>>>>>> support CCM, CAF and aii
         for email in re.findall(MAILREGEX, mdcontent):
             LOGGER.debug("Found %s." % email[0])
             replace = True

@@ -35,6 +35,9 @@ REPOMAP = {
     "CCM": {"sitesubdir": "CCM",
             "prefix": "",
             "target": "doc/pod/EDG/WP4/CCM"},
+    "build-scripts": {"sitesubdir": "maven-tools",
+                    "prefix": "",
+                    "target": ""},
     }
 
 

@@ -58,7 +58,7 @@ def findtemplates(location):
         # Make sure we don't descend into mgmt directories (e.g. .git)
         for i in range(len(dirs) - 1, -1, -1):
             if dirs[i].startswith("."):
-                logger.debug("Removing dir $s. Hidden directory." % dirs[i])
+                logger.debug("Removing dir %s. Hidden directory." % dirs[i])
                 del dirs[i]
 
         for f in files:

@@ -10,7 +10,7 @@ import shutil
 import time
 from time import ctime
 import argparse
-import logging
+from vsc.utils import fancylogger
 from collections import defaultdict
 from operator import itemgetter
 
@@ -21,7 +21,11 @@ from mako import exceptions
 BINDIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 sys.path.append(os.path.join(BINDIR, "..", "lib", "python"))
 
-log = logging.getLogger("annotations2html")
+# log setup
+logger = fancylogger.getLogger(__name__)
+fancylogger.logToScreen(True)
+fancylogger.setLogLevelInfo()
+
 
 template_re = re.compile(r"^\s*(?:(?:object|structure|declaration|unique)\s+)*"
                          r"template\s+(\S+)\s*;")
@@ -42,6 +46,7 @@ for t in ["desc", "section"]:
 def is_template(name):
     if name.endswith((".pan", ".tpl")):
         return True
+    logger.debug("NOT a pan file.")
     return False
 
 
@@ -81,15 +86,25 @@ def parse_panc_errors(text):
 
 def render_one(outfile, transform, args):
     try:
+        logger.debug("Rendering file.")
+        logger.debug("Transform: %s" % transform)
+        logger.debug("Arguments: %s" % args)
         result = transform.render(**args)
     except:
         print exceptions.text_error_template().render()
-    log.debug("writing %s", outfile)
+    logger.debug("writing %s", outfile)
     with open(outfile, 'w') as fd:
         fd.write(result)
 
 
 def annotate(templates, index, state, base_path, outdir, render_at_end):
+    logger.debug("Starting annotate.")
+    logger.debug("Templates: %s" % templates)
+    logger.debug("index: %s" % index)
+    logger.debug("state: %s" % state)
+    logger.debug("base_path: %s" % base_path)
+    logger.debug("outdir: %s" % outdir)
+    logger.debug("render_at_end: %s" % render_at_end)
     if not templates:
         return
 
@@ -111,23 +126,25 @@ def annotate(templates, index, state, base_path, outdir, render_at_end):
         # Run "panc" to get the annotation data
         args = [panc_annotations, "--output-dir", tmpdir]
         args.extend([os.path.join(base_path, tpl) for tpl in templates])
-        log.info("invoking %s", " ".join(args))
+        logger.info("invoking %s", " ".join(args))
 
         # Make sure output from pan is not mixed with output from this script
         sys.stdout.flush()
 
         p = Popen(args, stderr=PIPE, stdout=PIPE)
         out, err = p.communicate()
-        log.info("command returned %d", p.returncode)
-        log.debug("command stdout:\n%s", out)
-        log.debug("command stderr:\n%s", err)
+        logger.info("command returned %d", p.returncode)
+        logger.debug("command stdout:\n%s", out)
+        logger.debug("command stderr:\n%s", err)
 
         errors = parse_panc_errors(out)
 
         important = "documentation.annotation.xml"
         # And now parse all the annotations that we received
+        logger.debug("starting tree walk in %s." % tmpdir)
         for root, dirs, files in os.walk(tmpdir, topdown=True):
             files.sort()
+            logger.debug("Moving %s to the front of the queue." % important)
             try:
                 # Try and move the important file to the front,
                 # but it may not exist. If we can't never mind -
@@ -138,19 +155,23 @@ def annotate(templates, index, state, base_path, outdir, render_at_end):
                 pass
 
             relpath = os.path.relpath(root, tmpdir)
+            logger.debug("Relative path: %s" % relpath)
             if relpath not in state:
                 state[relpath] = state[os.path.dirname(relpath)].copy()
+            logger.debug("state: %s " % state)
 
             for file in files:
                 if not file.endswith(".xml"):
+                    logger.debug("Discarding %s. Not an xml file." % file)
                     continue
 
-                log.debug("parsing %s/%s", relpath, file)
+                logger.debug("parsing %s/%s", relpath, file)
                 # Create a filename to dump the HTML output
                 htmlname = os.path.join(relpath, file)
                 htmlname = re.sub(r'\.xml$', '.html', htmlname)
                 htmlname = re.sub(r'/', '.', htmlname)
                 outfile = os.path.join(outdir, htmlname)
+                logger.debug("target file: %s" % outfile)
 
                 xml = etree.parse(os.path.join(root, file))
 
@@ -161,13 +182,16 @@ def annotate(templates, index, state, base_path, outdir, render_at_end):
                 # templates)
                 section = xml.findtext("{%s}section" % ns)
                 if section is not None:
-                    log.info("found section %s for path %s", section, relpath)
+                    logger.info("found section %s for path %s", section, relpath)
                     state[relpath]['section'] = section
                 section = state[relpath]['section']
+                logger.debug("section: %s" % section)
 
                 # Generate some text representing the template itself
                 source = file[0:-len(".annotation.xml")]
+                logger.debug("Source: %s" % source)
                 tplname = os.path.join(relpath, source)
+                logger.debug("tplname: %s" % tplname)
 
                 myerrors = None
                 errname = os.path.join(relpath, file)
@@ -229,6 +253,20 @@ def annotate(templates, index, state, base_path, outdir, render_at_end):
                 # if memory usage gets too bad, then we can drop the
                 # cross-referencing within specific files and render as we
                 # go...
+                logger.debug("Creating context:")
+                logger.debug('title: %s ' % title)
+                logger.debug('tplname: %s ' % tplname)
+                logger.debug('htmlname: %s ' % htmlname)
+                logger.debug('navigation: %s ' % index)
+                logger.debug('source: %s ' % tplsource)
+                logger.debug('errors: %s ' % myerrors)
+                logger.debug('section: %s ' % section)
+                logger.debug('mtime: %s ' % mtime)
+                logger.debug('xml: %s ' % xml)
+                logger.debug('ns: %s ' % ns)
+                logger.debug('state: %s ' % state[relpath])
+                logger.debug('index: %s ' % TEMPLATES_BYNAME)
+
                 context = {'title': title,
                            'tplname': tplname,
                             'htmlname': htmlname,
@@ -259,6 +297,7 @@ def fix_unicode(value):
     try:
         unicode(value, "ascii")
     except UnicodeError:
+        logger.debug("Fixing unicode for %s." % value)
         return unicode(value, "utf-8", "replace")
     else:
         return value
@@ -275,10 +314,10 @@ def index_add(index, section, title, href, text):
 
 
 def build_toplevels(out, index):
-    log.info("building index files")
+    logger.info("building index files")
 
     for section in index.keys():
-        log.info("building %s", section)
+        logger.info("building %s", section)
         idxbody = []
 
         s = section.capitalize()
@@ -315,7 +354,7 @@ def build_toplevels(out, index):
         outfile = os.path.join(out, "%s.html" % safe)
         result = None
         result = transform.render(**context)
-        log.debug("writing %s", outfile)
+        logger.debug("writing %s", outfile)
         with open(outfile, 'w') as fd:
             fd.write(result)
 
@@ -387,7 +426,7 @@ def chunk_list(list_, chunk_size):
 # template names the same in different loadpath contexts)
 def main():
     parser = argparse.ArgumentParser(description="Generate template documentation")
-    parser.add_argument("-d", "--debug", dest="debug", action="count",
+    parser.add_argument("-d", "--debug", dest="debug", action="store_true", default=False,
                         help="Extra output. Specify twice for even more")
     parser.add_argument("-j", "--java", dest="java", metavar='JAVA_HOME',
                         help="Location of the JRE")
@@ -402,12 +441,8 @@ def main():
     if args.java is not None:
         os.environ["JAVA_HOME"] = args.java
 
-    if args.debug > 1:
-        logging.basicConfig(level=logging.DEBUG)
-    elif args.debug == 1:
-        logging.basicConfig(level=logging.INFO)
-    else:
-        logging.basicConfig(level=logging.WARNING)
+    if args.debug:
+        fancylogger.setLogLevelDebug()
 
     top = args.source
     # If the chdir fails, the exception is just what we want.
@@ -421,7 +456,7 @@ def main():
     css = os.path.join(BINDIR, "..", "lib", "annotations.css")
     shutil.copyfile(css, os.path.join(out, "annotations.css"))
 
-    log.warning("starting %s %s %s", sys.argv[0], top, out)
+    logger.warning("starting %s %s %s", sys.argv[0], top, out)
 
     index = dict()
     index['contents'] = dict()
@@ -432,16 +467,20 @@ def main():
 
     template_bases = defaultdict(list)
 
+    logger.debug("Start treewalk.")
     for root, dirs, files in os.walk(top, topdown=True):
         # Make sure we don't descend into mgmt directories (e.g. .git)
         for i in range(len(dirs) - 1, -1, -1):
             if dirs[i].startswith("."):
+                logger.debug("Removing dir $s. Hidden directory." % dirs[i])
                 del dirs[i]
             if root == top and dirs[i] == 't':
                 # 't' is considered to be a "test" directory - ignore it
+                logger.debug("Removing dir $s. Test directory." % dirs[i])
                 del dirs[i]
 
         for f in files:
+            logger.debug("checking if %s is a pan template." % f)
             if not is_template(f):
                 continue
 
@@ -449,7 +488,7 @@ def main():
             template_bases[basedir].append(tplpath)
 
     for relpath in sorted(template_bases.keys()):
-        log.info("scanning templates relative to %s", relpath)
+        logger.info("scanning templates relative to %s", relpath)
         tpls = template_bases[relpath]
 
         if relpath == ".":
@@ -463,7 +502,7 @@ def main():
             if deferred:
                 work_queue.extend(deferred)
 
-    log.info("rendering html")
+    logger.info("rendering html")
     for (outfile, transform, args) in work_queue:
         render_one(outfile, transform, args)
 

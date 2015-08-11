@@ -56,14 +56,10 @@ def findtemplates(location):
     logger.debug("Start tree walk.")
     for root, dirs, files in os.walk(location, topdown=True):
         # Make sure we don't descend into mgmt directories (e.g. .git)
-#        for i in range(len(dirs) - 1, -1, -1):
-#            if dirs[i].startswith("."):
-#                logger.debug("Removing dir $s. Hidden directory." % dirs[i])
-#                del dirs[i]
-#            if root == top and dirs[i] == 't':
-#                # 't' is considered to be a "test" directory - ignore it
-#                logger.debug("Removing dir $s. Test directory." % dirs[i])
-#                del dirs[i]
+        for i in range(len(dirs) - 1, -1, -1):
+            if dirs[i].startswith("."):
+                logger.debug("Removing dir $s. Hidden directory." % dirs[i])
+                del dirs[i]
 
         for f in files:
             logger.debug("checking if %s is a pan template." % f)

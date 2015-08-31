@@ -1,8 +1,11 @@
 #!/usr/bin/env python2
 """
-quattor-pod-doc generates markdown documentation from the
-pod's in configuration-modules-core and creates a index for
-the website on http://quattor.org.
+quattor-pod-doc generates markdown documentation from:
+ - configuration-modules-core perl documentation
+ - CAF perl documentation
+ - CCM perl documentation
+ - schema pan annotations
+ and creates a index for the website on http://quattor.org.
 
 @author: Wouter Depypere (Ghent University)
 

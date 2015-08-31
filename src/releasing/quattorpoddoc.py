@@ -116,17 +116,19 @@ def createmdfrompan(source, comppath):
                     if fieldtype == "long" and basetype.get('range'):
                         fieldrange = basetype.get('range')
                         fih.write("        - range: %s\n" % fieldrange)
-                fih.write("\n")
+                fih.write("\n\n")
 
-        fih.write("\n# Functions\n")
-
-        for fnname in root.findall('%sfunction' % namespace):
-            name = fnname.get('name')
-            fih.write("  - %s\n")
-            for doc in fnname.findall(".//%sdesc" % namespace):
-                fih.write("   description: %s \n" % doc.text)
-            for arg in fnname.findall(".//%sarg" % namespace):
-                fih.write("   - arg: %s \n" % arg.text)
+        deffunctions = root.findall('%sfunction' % namespace)
+        if len(deffunctions) > 0:
+            fih.write("\n# Functions\n\n")
+            root.findall('%sfunction' % namespace)
+            for fnname in deffunctions:
+                name = fnname.get('name')
+                fih.write("  - %s\n" % name)
+                for doc in fnname.findall(".//%sdesc" % namespace):
+                    fih.write("   description: %s \n" % doc.text)
+                for arg in fnname.findall(".//%sarg" % namespace):
+                    fih.write("   - arg: %s \n" % arg.text)
     logger.debug("Removing temporary directory: %s " % tmpdir)
     shutil.rmtree(tmpdir)
     return mdfile
@@ -156,7 +158,7 @@ def generatetoc(mdfiles, outputloc, indexname):
         fih.write("pages:\n")
         fih.write("- introduction: 'index.md'\n")
 
-        for subdivision in mdfiles.keys():
+        for subdivision in sorted(mdfiles.keys()):
             fih.write("- %s:\n" % subdivision)
             for page in sorted(mdfiles[subdivision]):
                 linkname = page.split(".")[0]
@@ -350,7 +352,7 @@ def listperlmodules(module_location):
                     duplicate = ""
                     if "lib/perl" in fname:
                         duplicate = fname.replace('lib/perl', 'doc/pod')
-                        if mfilef.endswith('.pm'):
+                        if mfile.endswith('.pm'):
                             duplicate = duplicate.replace(".pm", ".pod")
                         if duplicate not in finallist:
                             finallist.append(fname)
